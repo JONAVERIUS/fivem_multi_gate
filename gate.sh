@@ -1,317 +1,314 @@
-#!/bin/bash
+<!DOCTYPE html>
+<html lang="id">
 
-# ==============================================================================
-# SKRIP FINAL - INSTALASI PROXY NGINX UNTUK FIVEM DI UBUNTU 20.04 (MULTI-SERVER)
-# ==============================================================================
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FiveM Nginx Proxy - Panduan Lengkap</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.4);
+            --secondary: #a855f7;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text: #f8fafc;
+            --text-dim: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+            --success: #10b981;
+        }
 
-# -- FUNGSI UNTUK MENCETAK PESAN --
-print_info() {
-    echo -e "\e[34m[INFO]\e[0m $1"
-}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
 
-print_success() {
-    echo -e "\e[32m[SUKSES]\e[0m $1"
-}
+        body {
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.1) 0%, transparent 40%);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
 
-print_error() {
-    echo -e "\e[31m[ERROR]\e[0m $1"
-    exit 1
-}
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
 
-TARGETS_FILE="/etc/nginx/gate_targets.list"
+        header {
+            text-align: center;
+            margin-bottom: 80px;
+            animation: fadeIn 1s ease-out;
+        }
 
-# -- FUNGSI MANAJEMEN TARGET --
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+            letter-spacing: -1px;
+        }
 
-# Muat target dari file
-load_targets() {
-    if [ -f "$TARGETS_FILE" ]; then
-        mapfile -t targets < "$TARGETS_FILE"
-    else
-        targets=()
-    fi
-}
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 1.2rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
 
-# Simpan target ke file
-save_targets() {
-    printf "%s\n" "${targets[@]}" > "$TARGETS_FILE"
-    configure_nginx "${targets[@]}"
-}
+        .section {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px border var(--border);
+            border-radius: 24px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
 
-# Lihat daftar target
-list_targets() {
-    load_targets
-    echo ""
-    print_info "Daftar Target Server Saat Ini:"
-    if [ ${#targets[@]} -eq 0 ]; then
-        echo "   (Kosong)"
-    else
-        for i in "${!targets[@]}"; do
-            echo "   [$((i+1))] ${targets[$i]}"
-        done
-    fi
-    echo ""
-}
+        .section:hover {
+            transform: translateY(-5px);
+        }
 
-# Tambah target
-add_target() {
-    echo ""
-    print_info "Tambah Target Server Baru"
-    read -p "    Masukkan IP:Port (Contoh: 1.1.1.1:30120): " new_target
-    if [ -n "$new_target" ]; then
-        targets+=("$new_target")
-        save_targets
-        print_success "Target ditambahkan."
-    else
-        print_error "Input tidak boleh kosong."
-    fi
-}
+        h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
 
-# Hapus target
-delete_target() {
-    list_targets
-    if [ ${#targets[@]} -eq 0 ]; then return; fi
-    
-    read -p "    Masukkan nomor target yang ingin dihapus (atau 0 untuk batal): " choice
-    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#targets[@]} ]; then
-        idx=$((choice-1))
-        removed_target=${targets[$idx]}
-        unset 'targets[idx]'
-        targets=("${targets[@]}") # Re-index
-        save_targets
-        print_success "Target $removed_target telah dihapus."
-    elif [ "$choice" == "0" ]; then
-        print_info "Batal menghapus."
-    else
-        print_error "Pilihan tidak valid."
-    fi
-}
+        h2::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: var(--primary);
+            border-radius: 2px;
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
 
-# Ganti/Edit target
-edit_target() {
-    list_targets
-    if [ ${#targets[@]} -eq 0 ]; then return; fi
+        .code-block {
+            background: #000;
+            padding: 20px;
+            border-radius: 12px;
+            position: relative;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: 'Fira Code', monospace;
+            overflow-x: auto;
+        }
 
-    read -p "    Masukkan nomor target yang ingin diganti (atau 0 untuk batal): " choice
-    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#targets[@]} ]; then
-        idx=$((choice-1))
-        old_target=${targets[$idx]}
-        read -p "    Masukkan IP:Port baru untuk [$choice] (Target sekarang: $old_target): " new_val
-        if [ -n "$new_val" ]; then
-            targets[$idx]="$new_val"
-            save_targets
-            print_success "Target [$choice] diperbarui."
-        else
-            print_error "Input tidak boleh kosong."
-        fi
-    elif [ "$choice" == "0" ]; then
-        print_info "Batal mengedit."
-    else
-        print_error "Pilihan tidak valid."
-    fi
-}
+        code {
+            color: var(--success);
+            font-size: 0.95rem;
+        }
 
-# 5. Konfigurasi Nginx
-configure_nginx() {
-    local servers=("$@")
-    
-    # Jika tidak ada server, Nginx butuh setidaknya satu baris atau blok upstream dihapus.
-    # Namun untuk proxy FiveM, kita anggap minimal 1 target diperlukan untuk fungsionalitas.
-    if [ ${#servers[@]} -eq 0 ]; then
-        print_info "Peringatan: Tidak ada target server. Proxy tidak akan berfungsi."
-    fi
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
 
-    # Backup...
-    [ -f "/etc/nginx/nginx.conf" ] && cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.backup.$(date +%Y%m%d_%H%M%S)
+        .copy-btn:hover {
+            background: var(--primary);
+        }
 
-    # Generate configurations (sama seperti sebelumnya, hanya menggunakan parameter yang diberikan)
-    # ... logic generate configurations ...
-    # (Saya akan menyatukan logic generate di sini)
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
 
-    # Generate main nginx.conf
-    cat <<EOF > /etc/nginx/nginx.conf
-user nginx;
-worker_processes  auto;
-worker_rlimit_nofile 65535;
-error_log  /var/log/nginx/error.log notice;
-pid        /var/run/nginx.pid;
+        .feature-card {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
 
-events {
-    worker_connections  65535;
-    multi_accept on;
-}
+        .feature-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
 
-http {
-    upstream backend {
-$(for s in "${servers[@]}"; do echo "        server $s;"; done)
-    }
+        .menu-list {
+            list-style: none;
+        }
 
-    include       /etc/nginx/mime.types;
-    default_type  application/octet-stream;
-    ssl_protocols TLSv1.2;
-    log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
-                    '\$status \$body_bytes_sent "\$http_referer" '
-                    '"\$http_user_agent" "\$http_x_forwarded_for"';
+        .menu-list li {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
 
-    access_log  /var/log/nginx/access.log  main;
+        .menu-num {
+            background: var(--primary);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
 
-    keepalive_timeout 65;
-    sendfile on;
-    tcp_nopush on;
-    tcp_nodelay on;
-    types_hash_max_size 2048;
-    include /etc/nginx/web.conf;
-}
+        .footer {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
 
-include /etc/nginx/stream.conf;
-EOF
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
 
-    # Generate stream.conf
-    cat <<EOF > /etc/nginx/stream.conf
-stream {
-    upstream backend_stream {
-$(for s in "${servers[@]}"; do echo "        server $s;"; done)
-    }
-    server {
-        listen 30120;
-        proxy_pass backend_stream;
-    }
-    server {
-        listen 30120 udp reuseport;
-        proxy_pass backend_stream;
-    }
-}
-EOF
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
-    # Generate web.conf
-    SERVER_IP=$(curl -s http://checkip.amazonaws.com 2>/dev/null || echo "localhost")
-    cat <<EOF > /etc/nginx/web.conf
-server {
-    listen 80;
-    server_name $SERVER_IP;
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5rem;
+            }
 
-    location / {
-        proxy_pass http://backend;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
-}
-EOF
+            .section {
+                padding: 25px;
+            }
+        }
+    </style>
+</head>
 
-    print_info "Memeriksa konfigurasi Nginx..."
-    if ! nginx -t >/dev/null 2>&1; then
-        print_error "Konfigurasi Nginx tidak valid!"
-    fi
+<body>
 
-    print_info "Memulai ulang Nginx..."
-    systemctl restart nginx && print_success "Nginx berhasil direfresh." || print_error "Gagal merefresh Nginx."
-}
+    <div class="container">
+        <header>
+            <h1>FiveM Proxy Solution</h1>
+            <p class="subtitle">Kelola akses server FiveM Anda dengan aman, cepat, dan profesional menggunakan Nginx
+                Proxy Gateway.</p>
+        </header>
 
-# Menu Kelola Target
-manage_targets_menu() {
-    while true; do
-        echo ""
-        print_info "=== KELOLA TARGET SERVER ==="
-        echo "1. Lihat Daftar Target"
-        echo "2. Tambah Target Baru"
-        echo "3. Edit/Ganti Target"
-        echo "4. Hapus Target"
-        echo "0. Kembali ke Menu Utama"
-        echo ""
-        read -p "Masukkan pilihan: " subchoice
-        
-        case $subchoice in
-            1) list_targets ;;
-            2) load_targets; add_target ;;
-            3) load_targets; edit_target ;;
-            4) load_targets; delete_target ;;
-            0) break ;;
-            *) print_error "Pilihan tidak valid." ;;
-        esac
-    done
-}
+        <div class="section">
+            <h2>Instalasi Cepat</h2>
+            <p>Gunakan satu baris perintah di bawah ini untuk mengunduh dan menjalankan skrip instalasi secara otomatis.
+            </p>
+            <div class="code-block" id="installCmd">
+                <code>curl -fsSL https://raw.githubusercontent.com/JONAVERIUS/fivem_multi_gate/refs/heads/main/gate.sh | tr -d '\r' > gate.sh && sudo bash gate.sh</code>
+                <button class="copy-btn" onclick="copyCode()">Copy</button>
+            </div>
+        </div>
 
-# 1. Verifikasi hak akses root
-if [ "$(id -u)" != "0" ]; then
-   print_error "Skrip ini harus dijalankan sebagai root."
-fi
+        <div class="section">
+            <h2>Fitur Utama</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>Multi-Server Target</h3>
+                    <p>Mendukung lebih dari satu IP target. Trafik akan dibagikan secara otomatis melalui Nginx
+                        Upstream.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Manajemen Target</h3>
+                    <p>Dilengkapi menu interaktif untuk Menambah, Mengedit, dan Menghapus target server kapan saja.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Data Persisten</h3>
+                    <p>Skrip menyimpan daftar target Anda secara otomatis. Tidak perlu input ulang setelah restart.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Keamanan Layer 4/7</h3>
+                    <p>Protokol TCP/UDP dioptimalkan untuk performa FiveM yang rendah latensi.</p>
+                </div>
+            </div>
+        </div>
 
-# Menu utama
-while true; do
-    echo ""
-    print_info "=== NGINX PROXY UNTUK FIVEM (MANAGEMENT) ==="
-    echo "1. Instalasi Lengkap (Nginx + Proxy)"
-    echo "2. Kelola Target Server (Lihat, Tambah, Hapus, Ganti)"
-    echo "0. Keluar"
-    echo ""
-    read -p "Pilihan Anda: " mainchoice
+        <div class="section">
+            <h2>Panduan Menu</h2>
+            <p style="margin-bottom: 20px;">Jalankan kembali skrip dengan <code>sudo bash gatefivem.sh</code> untuk
+                melihat menu manajemen:</p>
+            <ul class="menu-list">
+                <li>
+                    <div class="menu-num">1</div>
+                    <div><strong>Instalasi Lengkap</strong> - Setup awal Nginx, Firewall, dan konfigurasi proxy dasar.
+                    </div>
+                </li>
+                <li>
+                    <div class="menu-num">2</div>
+                    <div><strong>Kelola Target Server</strong> - Masuk ke sub-menu manajemen (Lihat, Tambah, Hapus,
+                        Edit).</div>
+                </li>
+                <li>
+                    <div class="menu-num">0</div>
+                    <div><strong>Keluar</strong> - Menutup skrip dengan aman.</div>
+                </li>
+            </ul>
+        </div>
 
-    case $mainchoice in
-        1)
-            print_info "Mode: Instalasi Lengkap"
-            # (Fungsi instalasi akan dipanggil di bawah loop jika belum di refactor sepenuhnya)
-            # Untuk skrip ini, kita bisa langsung panggil step-step nya.
-            install_nginx
-            setup_firewall
-            cleanup_old_configs
-            print_info "Silakan tambahkan target pertama Anda:"
-            load_targets; add_target
-            ;;
-        2)
-            manage_targets_menu
-            ;;
-        0)
-            exit 0
-            ;;
-        *)
-            print_error "Pilihan tidak valid."
-            ;;
-    esac
-done
+        <div class="section">
+            <h2>Lokasi File Penting</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>Konfigurasi</h3>
+                    <p style="font-family: monospace; font-size: 0.85rem; margin-top: 5px;">
+                        /etc/nginx/nginx.conf<br>/etc/nginx/stream.conf</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Data Target</h3>
+                    <p style="font-family: monospace; font-size: 0.85rem; margin-top: 5px;">/etc/nginx/gate_targets.list
+                    </p>
+                </div>
+            </div>
+        </div>
 
-# --- FUNGSI PENDUKUNG ---
+        <div class="footer">
+            &copy; 2026 FiveM Proxy Gateway Solution. All rights reserved.
+        </div>
+    </div>
 
-install_nginx() {
-    print_info "Memulai instalasi Nginx..."
-    apt-get update >/dev/null 2>&1
-    apt-get install -y gnupg2 lsb-release software-properties-common wget curl >/dev/null 2>&1
-    
-    OS_CODENAME=$(lsb_release -cs)
-    curl -fsSL http://nginx.org/keys/nginx_signing.key | gpg --dearmor | tee /usr/share/keyrings/nginx-archive-keyring.gpg >/dev/null
-    echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/mainline/ubuntu/ $OS_CODENAME nginx" | tee /etc/apt/sources.list.d/nginx.list >/dev/null
+    <script>
+        function copyCode() {
+            const code = document.querySelector('#installCmd code').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.innerText = 'Copied!';
+                setTimeout(() => btn.innerText = 'Copy', 2000);
+            });
+        }
+    </script>
 
-    apt-get update >/dev/null 2>&1
-    apt-get install -y nginx >/dev/null 2>&1
-    systemctl enable nginx >/dev/null 2>&1
-    systemctl start nginx
-    print_success "Instalasi Nginx selesai."
-}
+</body>
 
-setup_firewall() {
-    print_info "Mengkonfigurasi firewall UFW..."
-    ufw allow 22/tcp >/dev/null 2>&1
-    ufw allow 80/tcp >/dev/null 2>&1
-    ufw allow 443/tcp >/dev/null 2>&1
-    ufw allow 30120/tcp >/dev/null 2>&1
-    ufw allow 30120/udp >/dev/null 2>&1
-    ufw --force enable >/dev/null 2>&1
-    print_success "Firewall selesai."
-}
-
-cleanup_old_configs() {
-    print_info "Membersihkan konfigurasi default Nginx..."
-    rm -f /etc/nginx/conf.d/default.conf
-    mkdir -p /etc/nginx/ssl
-}
-
-# Inisialisasi awal target
-load_targets
-
-print_success "--- INSTALASI SELESAI! ---"
-echo "Anda sekarang dapat terhubung ke server Anda menggunakan IP GATE."
-echo ""
-exit 0
-
-# Selesai
-echo ""
-exit 0
+</html>
